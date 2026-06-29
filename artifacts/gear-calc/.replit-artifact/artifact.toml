@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Industrial Gear Engineering Calculator"
+version = "1.0.0"
+id = "artifacts/gear-calc"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 24978
+
+[services.development]
+run = "pnpm --filter @workspace/gear-calc run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/gear-calc", "run", "build" ]
+publicDir = "artifacts/gear-calc/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "24978"
+BASE_PATH = "/"
