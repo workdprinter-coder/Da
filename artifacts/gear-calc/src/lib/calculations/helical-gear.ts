@@ -10,12 +10,14 @@ export const helicalGearInputSchema = z.object({
   pressureAngle: z.number().min(10).max(30),
   hand: z.enum(["right", "left"]),
   faceWidth: z.number().min(1).optional(),
+  addendumFactor: z.number().min(0.1).max(3),
+  dedendumFactor: z.number().min(0.1).max(3),
 });
 
 export type HelicalGearInput = z.infer<typeof helicalGearInputSchema>;
 
 export function calculateHelicalGear(input: HelicalGearInput): CalculationResult[] {
-  const { unitSystem, mn, z1, z2, helixAngle, pressureAngle, hand, faceWidth } = input;
+  const { unitSystem, mn, z1, z2, helixAngle, pressureAngle, hand, faceWidth, addendumFactor, dedendumFactor } = input;
 
   const beta = (helixAngle * Math.PI) / 180;
   const phi_n = (pressureAngle * Math.PI) / 180;
@@ -28,10 +30,18 @@ export function calculateHelicalGear(input: HelicalGearInput): CalculationResult
   const i = z2 / z1;
   const d1 = mt * z1;
   const d2 = mt * z2;
-  const da1 = d1 + 2 * mn;
-  const da2 = d2 + 2 * mn;
-  const df1 = d1 - 2.5 * mn;
-  const df2 = d2 - 2.5 * mn;
+
+  // Tooth proportions using user factors (applied in the normal plane)
+  const a = addendumFactor * mn;
+  const b = dedendumFactor * mn;
+  const h = a + b;
+  const hw = 2 * a;
+  const hc = h;
+
+  const da1 = d1 + 2 * a;
+  const da2 = d2 + 2 * a;
+  const df1 = d1 - 2 * b;
+  const df2 = d2 - 2 * b;
   const db1 = d1 * Math.cos(phi_t);
   const db2 = d2 * Math.cos(phi_t);
 
@@ -82,9 +92,9 @@ export function calculateHelicalGear(input: HelicalGearInput): CalculationResult
       symbol: "mt",
       formula: "mn / cos(β)",
       variables: "mn = Normal module, β = Helix angle",
-      substitution: `${fmt(mn)} / cos(${helixAngle}°)`,
+      substitution: `${fmt(cv(mn))} / cos(${helixAngle}°)`,
       value: cv(mt),
-      unit: unit,
+      unit,
       note: "Transverse plane module — larger than normal module",
     },
     {
@@ -116,30 +126,89 @@ export function calculateHelicalGear(input: HelicalGearInput): CalculationResult
       unit,
     },
     {
+      label: "Addendum",
+      symbol: "a",
+      formula: "ha × mn",
+      variables: `ha = Addendum factor (${fmt(addendumFactor)}), mn = Normal module`,
+      substitution: `${fmt(addendumFactor)} × ${fmt(cv(mn))}`,
+      value: cv(a),
+      unit,
+      note: "Tooth height above pitch cylinder (normal plane)",
+    },
+    {
+      label: "Dedendum",
+      symbol: "b",
+      formula: "hf × mn",
+      variables: `hf = Dedendum factor (${fmt(dedendumFactor)}), mn = Normal module`,
+      substitution: `${fmt(dedendumFactor)} × ${fmt(cv(mn))}`,
+      value: cv(b),
+      unit,
+      note: "Tooth depth below pitch cylinder (normal plane)",
+    },
+    {
+      label: "Whole Depth",
+      symbol: "h",
+      formula: "(ha + hf) × mn",
+      variables: `ha = ${fmt(addendumFactor)}, hf = ${fmt(dedendumFactor)}, mn = Normal module`,
+      substitution: `(${fmt(addendumFactor)} + ${fmt(dedendumFactor)}) × ${fmt(cv(mn))}`,
+      value: cv(h),
+      unit,
+      note: "Total tooth height = addendum + dedendum",
+    },
+    {
+      label: "Working Depth",
+      symbol: "hw",
+      formula: "2 × ha × mn",
+      variables: `ha = Addendum factor (${fmt(addendumFactor)}), mn = Normal module`,
+      substitution: `2 × ${fmt(addendumFactor)} × ${fmt(cv(mn))}`,
+      value: cv(hw),
+      unit,
+      note: "Depth of engagement between mating teeth",
+    },
+    {
+      label: "Depth of Cut",
+      symbol: "hc",
+      formula: "(ha + hf) × mn",
+      variables: `ha = ${fmt(addendumFactor)}, hf = ${fmt(dedendumFactor)}, mn = Normal module`,
+      substitution: `(${fmt(addendumFactor)} + ${fmt(dedendumFactor)}) × ${fmt(cv(mn))}`,
+      value: cv(hc),
+      unit,
+      note: "Hob / cutter depth setting = whole depth",
+    },
+    {
       label: "Outside Diameter Pinion",
       symbol: "da1",
-      formula: "d1 + 2mn",
-      variables: "d1 = Pitch diameter, mn = Normal module",
-      substitution: `${fmt(cv(d1))} + 2 × ${fmt(cv(mn))}`,
+      formula: "d1 + 2 × ha × mn",
+      variables: `d1 = Pitch diameter, ha = ${fmt(addendumFactor)}, mn = Normal module`,
+      substitution: `${fmt(cv(d1))} + 2 × ${fmt(addendumFactor)} × ${fmt(cv(mn))}`,
       value: cv(da1),
       unit,
     },
     {
       label: "Outside Diameter Gear",
       symbol: "da2",
-      formula: "d2 + 2mn",
-      variables: "d2 = Pitch diameter, mn = Normal module",
-      substitution: `${fmt(cv(d2))} + 2 × ${fmt(cv(mn))}`,
+      formula: "d2 + 2 × ha × mn",
+      variables: `d2 = Pitch diameter, ha = ${fmt(addendumFactor)}, mn = Normal module`,
+      substitution: `${fmt(cv(d2))} + 2 × ${fmt(addendumFactor)} × ${fmt(cv(mn))}`,
       value: cv(da2),
       unit,
     },
     {
       label: "Root Diameter Pinion",
       symbol: "df1",
-      formula: "d1 - 2.5mn",
-      variables: "d1 = Pitch diameter, mn = Normal module",
-      substitution: `${fmt(cv(d1))} - 2.5 × ${fmt(cv(mn))}`,
+      formula: "d1 - 2 × hf × mn",
+      variables: `d1 = Pitch diameter, hf = ${fmt(dedendumFactor)}, mn = Normal module`,
+      substitution: `${fmt(cv(d1))} - 2 × ${fmt(dedendumFactor)} × ${fmt(cv(mn))}`,
       value: cv(df1),
+      unit,
+    },
+    {
+      label: "Root Diameter Gear",
+      symbol: "df2",
+      formula: "d2 - 2 × hf × mn",
+      variables: `d2 = Pitch diameter, hf = ${fmt(dedendumFactor)}, mn = Normal module`,
+      substitution: `${fmt(cv(d2))} - 2 × ${fmt(dedendumFactor)} × ${fmt(cv(mn))}`,
+      value: cv(df2),
       unit,
     },
     {
@@ -209,9 +278,9 @@ export function calculateHelicalGear(input: HelicalGearInput): CalculationResult
     {
       label: "Lead Angle",
       symbol: "λ",
-      formula: "90° - β",
+      formula: "90° − β",
       variables: "β = Helix angle",
-      substitution: `90° - ${helixAngle}°`,
+      substitution: `90° − ${helixAngle}°`,
       value: leadAngle1,
       unit: "°",
     },

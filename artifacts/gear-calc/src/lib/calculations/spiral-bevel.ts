@@ -10,6 +10,8 @@ export const spiralBevelInputSchema = z.object({
   spiralAngle: z.number().min(10).max(50),
   pressureAngle: z.number().min(14.5).max(25),
   faceWidthRatio: z.number().min(0.1).max(0.4).optional(),
+  addendumFactor: z.number().min(0.1).max(3),
+  dedendumFactor: z.number().min(0.1).max(3),
 });
 
 export type SpiralBevelInput = z.infer<typeof spiralBevelInputSchema>;
@@ -18,10 +20,10 @@ export function calculateSpiralBevel(input: SpiralBevelInput): CalculationResult
   const {
     unitSystem, mn, z1, z2, shaftAngle: _shaftAngle,
     spiralAngle, pressureAngle, faceWidthRatio: fwRatio,
+    addendumFactor, dedendumFactor,
   } = input;
 
   const beta = (spiralAngle * Math.PI) / 180;
-  const phi_n = (pressureAngle * Math.PI) / 180;
 
   const i = z2 / z1;
   const delta2 = Math.atan(z2 / z1);
@@ -37,8 +39,12 @@ export function calculateSpiralBevel(input: SpiralBevelInput): CalculationResult
   const de1 = 2 * Re * Math.sin(delta1);
   const de2 = 2 * Re * Math.sin(delta2);
 
-  const ae = mn;
-  const be = 1.25 * mn;
+  // Tooth proportions using user factors (applied at outer cone)
+  const ae = addendumFactor * mn;
+  const be = dedendumFactor * mn;
+  const h = ae + be;
+  const hw = 2 * ae;
+  const hc = h;
 
   const dae1 = de1 + 2 * ae * Math.cos(delta1);
   const dae2 = de2 + 2 * ae * Math.cos(delta2);
@@ -98,9 +104,9 @@ export function calculateSpiralBevel(input: SpiralBevelInput): CalculationResult
     {
       label: "Gear Pitch Cone Angle",
       symbol: "δ2",
-      formula: "90° - δ1",
+      formula: "90° − δ1",
       variables: "δ1 = Pinion pitch cone angle",
-      substitution: `90° - ${fmt(delta1_deg, 3)}°`,
+      substitution: `90° − ${fmt(delta1_deg, 3)}°`,
       value: delta2_deg,
       unit: "°",
     },
@@ -117,7 +123,7 @@ export function calculateSpiralBevel(input: SpiralBevelInput): CalculationResult
     {
       label: "Face Width",
       symbol: "F",
-      formula: "Re × F/Re ratio",
+      formula: "Re × (F/Re ratio)",
       variables: "Re = Outer cone distance",
       substitution: `${fmt(cv(Re))} × ${fwRatioVal}`,
       value: cv(F),
@@ -128,9 +134,9 @@ export function calculateSpiralBevel(input: SpiralBevelInput): CalculationResult
     {
       label: "Mean Cone Distance",
       symbol: "Rm",
-      formula: "Re - F/2",
+      formula: "Re − F/2",
       variables: "Re = Outer cone distance, F = Face width",
-      substitution: `${fmt(cv(Re))} - ${fmt(cv(F))} / 2`,
+      substitution: `${fmt(cv(Re))} − ${fmt(cv(F))} / 2`,
       value: cv(Rm),
       unit,
     },
@@ -141,8 +147,58 @@ export function calculateSpiralBevel(input: SpiralBevelInput): CalculationResult
       variables: "mn = Normal module, Rm = Mean cone dist, Re = Outer cone dist",
       substitution: `${fmt(cv(mn))} × ${fmt(cv(Rm))} / ${fmt(cv(Re))}`,
       value: cv(mm),
-      unit: unit,
+      unit,
       note: "Module at mean face width position",
+    },
+    {
+      label: "Addendum (Outer)",
+      symbol: "ae",
+      formula: "ha × mn",
+      variables: `ha = Addendum factor (${fmt(addendumFactor)}), mn = Normal module`,
+      substitution: `${fmt(addendumFactor)} × ${fmt(cv(mn))}`,
+      value: cv(ae),
+      unit,
+      note: "Tooth height above outer pitch cone",
+    },
+    {
+      label: "Dedendum (Outer)",
+      symbol: "be",
+      formula: "hf × mn",
+      variables: `hf = Dedendum factor (${fmt(dedendumFactor)}), mn = Normal module`,
+      substitution: `${fmt(dedendumFactor)} × ${fmt(cv(mn))}`,
+      value: cv(be),
+      unit,
+      note: "Tooth depth below outer pitch cone",
+    },
+    {
+      label: "Whole Depth",
+      symbol: "h",
+      formula: "(ha + hf) × mn",
+      variables: `ha = ${fmt(addendumFactor)}, hf = ${fmt(dedendumFactor)}, mn = Normal module`,
+      substitution: `(${fmt(addendumFactor)} + ${fmt(dedendumFactor)}) × ${fmt(cv(mn))}`,
+      value: cv(h),
+      unit,
+      note: "Total tooth height = addendum + dedendum",
+    },
+    {
+      label: "Working Depth",
+      symbol: "hw",
+      formula: "2 × ha × mn",
+      variables: `ha = Addendum factor (${fmt(addendumFactor)}), mn = Normal module`,
+      substitution: `2 × ${fmt(addendumFactor)} × ${fmt(cv(mn))}`,
+      value: cv(hw),
+      unit,
+      note: "Depth of engagement between mating teeth",
+    },
+    {
+      label: "Depth of Cut",
+      symbol: "hc",
+      formula: "(ha + hf) × mn",
+      variables: `ha = ${fmt(addendumFactor)}, hf = ${fmt(dedendumFactor)}, mn = Normal module`,
+      substitution: `(${fmt(addendumFactor)} + ${fmt(dedendumFactor)}) × ${fmt(cv(mn))}`,
+      value: cv(hc),
+      unit,
+      note: "Cutter / tool depth setting = whole depth",
     },
     {
       label: "Mean Pitch Diameter Pinion",
@@ -183,28 +239,37 @@ export function calculateSpiralBevel(input: SpiralBevelInput): CalculationResult
     {
       label: "Outside Diameter Pinion",
       symbol: "dae1",
-      formula: "de1 + 2ae × cos(δ1)",
-      variables: "de1 = Outer PD, ae = addendum (mn), δ1 = cone angle",
-      substitution: `${fmt(cv(de1))} + 2×${fmt(cv(ae))}×cos(${fmt(delta1_deg, 3)}°)`,
+      formula: "de1 + 2 × ha × mn × cos(δ1)",
+      variables: `de1 = Outer PD, ha = ${fmt(addendumFactor)}, mn = module, δ1 = cone angle`,
+      substitution: `${fmt(cv(de1))} + 2×${fmt(addendumFactor)}×${fmt(cv(mn))}×cos(${fmt(delta1_deg, 3)}°)`,
       value: cv(dae1),
       unit,
     },
     {
       label: "Outside Diameter Gear",
       symbol: "dae2",
-      formula: "de2 + 2ae × cos(δ2)",
-      variables: "de2 = Outer PD, ae = addendum (mn), δ2 = cone angle",
-      substitution: `${fmt(cv(de2))} + 2×${fmt(cv(ae))}×cos(${fmt(delta2_deg, 3)}°)`,
+      formula: "de2 + 2 × ha × mn × cos(δ2)",
+      variables: `de2 = Outer PD, ha = ${fmt(addendumFactor)}, mn = module, δ2 = cone angle`,
+      substitution: `${fmt(cv(de2))} + 2×${fmt(addendumFactor)}×${fmt(cv(mn))}×cos(${fmt(delta2_deg, 3)}°)`,
       value: cv(dae2),
       unit,
     },
     {
       label: "Root Diameter Pinion",
       symbol: "dfe1",
-      formula: "de1 - 2be × cos(δ1)",
-      variables: "de1 = Outer PD, be = dedendum (1.25mn), δ1 = cone angle",
-      substitution: `${fmt(cv(de1))} - 2×${fmt(cv(be))}×cos(${fmt(delta1_deg, 3)}°)`,
+      formula: "de1 − 2 × hf × mn × cos(δ1)",
+      variables: `de1 = Outer PD, hf = ${fmt(dedendumFactor)}, mn = module, δ1 = cone angle`,
+      substitution: `${fmt(cv(de1))} − 2×${fmt(dedendumFactor)}×${fmt(cv(mn))}×cos(${fmt(delta1_deg, 3)}°)`,
       value: cv(dfe1),
+      unit,
+    },
+    {
+      label: "Root Diameter Gear",
+      symbol: "dfe2",
+      formula: "de2 − 2 × hf × mn × cos(δ2)",
+      variables: `de2 = Outer PD, hf = ${fmt(dedendumFactor)}, mn = module, δ2 = cone angle`,
+      substitution: `${fmt(cv(de2))} − 2×${fmt(dedendumFactor)}×${fmt(cv(mn))}×cos(${fmt(delta2_deg, 3)}°)`,
+      value: cv(dfe2),
       unit,
     },
     {
@@ -228,39 +293,20 @@ export function calculateSpiralBevel(input: SpiralBevelInput): CalculationResult
     {
       label: "Root Angle Pinion",
       symbol: "δr1",
-      formula: "δ1 - arctan(be / Re)",
+      formula: "δ1 − arctan(be / Re)",
       variables: "δ1 = Pitch cone angle, be = dedendum, Re = outer cone dist",
-      substitution: `${fmt(delta1_deg, 3)}° - arctan(${fmt(cv(be))}/${fmt(cv(Re))})`,
+      substitution: `${fmt(delta1_deg, 3)}° − arctan(${fmt(cv(be))}/${fmt(cv(Re))})`,
       value: deltaR1_deg,
       unit: "°",
     },
     {
       label: "Root Angle Gear",
       symbol: "δr2",
-      formula: "δ2 - arctan(be / Re)",
+      formula: "δ2 − arctan(be / Re)",
       variables: "δ2 = Pitch cone angle, be = dedendum, Re = outer cone dist",
-      substitution: `${fmt(delta2_deg, 3)}° - arctan(${fmt(cv(be))}/${fmt(cv(Re))})`,
+      substitution: `${fmt(delta2_deg, 3)}° − arctan(${fmt(cv(be))}/${fmt(cv(Re))})`,
       value: deltaR2_deg,
       unit: "°",
-    },
-    {
-      label: "Addendum",
-      symbol: "ae",
-      formula: "mn (equal-depth)",
-      variables: "mn = Normal module",
-      substitution: `${fmt(cv(ae))}`,
-      value: cv(ae),
-      unit,
-      note: "Equal-depth teeth (simplified). Gleason unequal-depth requires ratio factor.",
-    },
-    {
-      label: "Dedendum",
-      symbol: "be",
-      formula: "1.25 × mn",
-      variables: "mn = Normal module",
-      substitution: `1.25 × ${fmt(cv(mn))}`,
-      value: cv(be),
-      unit,
     },
     {
       label: "Tooth Thickness at Mid-Face",

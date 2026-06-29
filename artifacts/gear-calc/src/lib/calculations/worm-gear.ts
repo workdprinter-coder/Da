@@ -8,12 +8,14 @@ export const wormGearInputSchema = z.object({
   z2: z.number().int().min(10),
   pressureAngle: z.number().min(14.5).max(30),
   q: z.number().min(6).max(25).optional(),
+  addendumFactor: z.number().min(0.1).max(3),
+  dedendumFactor: z.number().min(0.1).max(3),
 });
 
 export type WormGearInput = z.infer<typeof wormGearInputSchema>;
 
 export function calculateWormGear(input: WormGearInput): CalculationResult[] {
-  const { unitSystem, m, z1, z2, pressureAngle, q: qInput } = input;
+  const { unitSystem, m, z1, z2, pressureAngle, q: qInput, addendumFactor, dedendumFactor } = input;
 
   const q = qInput ?? 10;
   const phi = (pressureAngle * Math.PI) / 180;
@@ -27,15 +29,23 @@ export function calculateWormGear(input: WormGearInput): CalculationResult[] {
   const gamma_deg = (gamma * 180) / Math.PI;
   const beta_deg = 90 - gamma_deg;
 
-  const da1 = d1 + 2 * m;
-  const df1 = d1 - 2.5 * m;
+  // Tooth proportions using user factors (axial/normal plane)
+  const a = addendumFactor * m;
+  const b = dedendumFactor * m;
+  const h = a + b;
+  const hw = 2 * a;
+  const hc = h;
+
+  const da1 = d1 + 2 * a;
+  const df1 = d1 - 2 * b;
 
   const d2 = m * z2;
-  const da2 = d2 + 2 * m;
-  const df2 = d2 - 2.5 * m;
+  const da2 = d2 + 2 * a;
+  const df2 = d2 - 2 * b;
 
   const C = (d1 + d2) / 2;
 
+  // Blank / body dimensions
   const b1_min = 11 * m;
   const b2_rec = Math.min(0.75 * da1, 0.5 * d1 + 4 * m);
 
@@ -104,6 +114,56 @@ export function calculateWormGear(input: WormGearInput): CalculationResult[] {
       unit,
     },
     {
+      label: "Addendum",
+      symbol: "a",
+      formula: "ha × m",
+      variables: `ha = Addendum factor (${fmt(addendumFactor)}), m = Axial module`,
+      substitution: `${fmt(addendumFactor)} × ${fmt(cv(m))}`,
+      value: cv(a),
+      unit,
+      note: "Tooth height above pitch cylinder",
+    },
+    {
+      label: "Dedendum",
+      symbol: "b",
+      formula: "hf × m",
+      variables: `hf = Dedendum factor (${fmt(dedendumFactor)}), m = Axial module`,
+      substitution: `${fmt(dedendumFactor)} × ${fmt(cv(m))}`,
+      value: cv(b),
+      unit,
+      note: "Tooth depth below pitch cylinder",
+    },
+    {
+      label: "Whole Depth",
+      symbol: "h",
+      formula: "(ha + hf) × m",
+      variables: `ha = ${fmt(addendumFactor)}, hf = ${fmt(dedendumFactor)}, m = Axial module`,
+      substitution: `(${fmt(addendumFactor)} + ${fmt(dedendumFactor)}) × ${fmt(cv(m))}`,
+      value: cv(h),
+      unit,
+      note: "Total tooth height = addendum + dedendum",
+    },
+    {
+      label: "Working Depth",
+      symbol: "hw",
+      formula: "2 × ha × m",
+      variables: `ha = Addendum factor (${fmt(addendumFactor)}), m = Axial module`,
+      substitution: `2 × ${fmt(addendumFactor)} × ${fmt(cv(m))}`,
+      value: cv(hw),
+      unit,
+      note: "Depth of engagement between worm and wheel",
+    },
+    {
+      label: "Depth of Cut",
+      symbol: "hc",
+      formula: "(ha + hf) × m",
+      variables: `ha = ${fmt(addendumFactor)}, hf = ${fmt(dedendumFactor)}, m = Axial module`,
+      substitution: `(${fmt(addendumFactor)} + ${fmt(dedendumFactor)}) × ${fmt(cv(m))}`,
+      value: cv(hc),
+      unit,
+      note: "Tool depth setting = whole depth",
+    },
+    {
       label: "Lead Angle",
       symbol: "γ",
       formula: "arctan(z1 / q)",
@@ -116,27 +176,27 @@ export function calculateWormGear(input: WormGearInput): CalculationResult[] {
     {
       label: "Helix Angle of Wheel",
       symbol: "β",
-      formula: "90° - γ",
+      formula: "90° − γ",
       variables: "γ = Worm lead angle",
-      substitution: `90° - ${fmt(gamma_deg, 3)}°`,
+      substitution: `90° − ${fmt(gamma_deg, 3)}°`,
       value: beta_deg,
       unit: "°",
     },
     {
       label: "Worm Outside Diameter",
       symbol: "da1",
-      formula: "d1 + 2m",
-      variables: "d1 = Worm pitch diam, m = module",
-      substitution: `${fmt(cv(d1))} + 2 × ${fmt(cv(m))}`,
+      formula: "d1 + 2 × ha × m",
+      variables: `d1 = Worm pitch diam, ha = ${fmt(addendumFactor)}, m = module`,
+      substitution: `${fmt(cv(d1))} + 2 × ${fmt(addendumFactor)} × ${fmt(cv(m))}`,
       value: cv(da1),
       unit,
     },
     {
       label: "Worm Root Diameter",
       symbol: "df1",
-      formula: "d1 - 2.5m",
-      variables: "d1 = Worm pitch diam, m = module",
-      substitution: `${fmt(cv(d1))} - 2.5 × ${fmt(cv(m))}`,
+      formula: "d1 − 2 × hf × m",
+      variables: `d1 = Worm pitch diam, hf = ${fmt(dedendumFactor)}, m = module`,
+      substitution: `${fmt(cv(d1))} − 2 × ${fmt(dedendumFactor)} × ${fmt(cv(m))}`,
       value: cv(df1),
       unit,
     },
@@ -152,18 +212,18 @@ export function calculateWormGear(input: WormGearInput): CalculationResult[] {
     {
       label: "Worm Wheel Outside Diameter",
       symbol: "da2",
-      formula: "d2 + 2m",
-      variables: "d2 = Wheel pitch diam, m = module",
-      substitution: `${fmt(cv(d2))} + 2 × ${fmt(cv(m))}`,
+      formula: "d2 + 2 × ha × m",
+      variables: `d2 = Wheel pitch diam, ha = ${fmt(addendumFactor)}, m = module`,
+      substitution: `${fmt(cv(d2))} + 2 × ${fmt(addendumFactor)} × ${fmt(cv(m))}`,
       value: cv(da2),
       unit,
     },
     {
       label: "Worm Wheel Root Diameter",
       symbol: "df2",
-      formula: "d2 - 2.5m",
-      variables: "d2 = Wheel pitch diam, m = module",
-      substitution: `${fmt(cv(d2))} - 2.5 × ${fmt(cv(m))}`,
+      formula: "d2 − 2 × hf × m",
+      variables: `d2 = Wheel pitch diam, hf = ${fmt(dedendumFactor)}, m = module`,
+      substitution: `${fmt(cv(d2))} − 2 × ${fmt(dedendumFactor)} × ${fmt(cv(m))}`,
       value: cv(df2),
       unit,
     },

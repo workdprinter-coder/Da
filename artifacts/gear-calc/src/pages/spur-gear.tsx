@@ -13,6 +13,23 @@ import { Save, RotateCcw } from "lucide-react";
 
 type FormValues = z.infer<typeof spurGearInputSchema>;
 
+function ToothProportionRef() {
+  return (
+    <div className="border border-border/50 rounded p-3 bg-muted/10 space-y-1.5 mt-1">
+      <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+        Standard Full-Depth Involute Reference
+      </p>
+      <div className="space-y-0.5 text-[10px] text-muted-foreground font-mono">
+        <div className="flex justify-between"><span>Standard Addendum Factor</span><span className="text-foreground/50">= 1.000</span></div>
+        <div className="flex justify-between"><span>Standard Dedendum Factor</span><span className="text-foreground/50">= 1.250</span></div>
+      </div>
+      <p className="text-[10px] text-muted-foreground/60 leading-relaxed pt-0.5">
+        Ref: Machinery's Handbook, AGMA, ISO, DIN. Calculator uses your entered values (default 1.000 / 1.157).
+      </p>
+    </div>
+  );
+}
+
 export default function SpurGearPage() {
   const { settings, storeCalc } = useCalculator();
   const [saved, setSaved] = useState(false);
@@ -26,6 +43,8 @@ export default function SpurGearPage() {
       z1: 20,
       z2: 40,
       pressureAngle: settings.defaultPressureAngle,
+      addendumFactor: 1.000,
+      dedendumFactor: 1.157,
     },
   });
 
@@ -34,11 +53,7 @@ export default function SpurGearPage() {
   const results = useMemo(() => {
     const parsed = spurGearInputSchema.safeParse(values);
     if (!parsed.success) return null;
-    try {
-      return calculateSpurGear(parsed.data);
-    } catch {
-      return null;
-    }
+    try { return calculateSpurGear(parsed.data); } catch { return null; }
   }, [values]);
 
   const onSave = () => {
@@ -46,13 +61,15 @@ export default function SpurGearPage() {
     const v = form.getValues();
     storeCalc("spur", {
       type: "spur",
-      label: `Spur: m=${v.moduleValue}, z1=${v.z1}, z2=${v.z2}, PA=${v.pressureAngle}°`,
+      label: `Spur: m=${v.moduleValue}, z1=${v.z1}, z2=${v.z2}, PA=${v.pressureAngle}°, ha=${v.addendumFactor}, hf=${v.dedendumFactor}`,
       inputs: {
         "Unit System": v.unitSystem,
         [v.inputMode === "module" ? "Module (m)" : "Diametral Pitch (DP)"]: v.moduleValue,
         "Pinion Teeth (z1)": v.z1,
         "Gear Teeth (z2)": v.z2,
         "Pressure Angle (°)": v.pressureAngle,
+        "Addendum Factor (ha)": v.addendumFactor,
+        "Dedendum Factor (hf)": v.dedendumFactor,
       },
       results,
       timestamp: Date.now(),
@@ -82,175 +99,150 @@ export default function SpurGearPage() {
               Input Parameters
             </h2>
             <Form {...form}>
-              <form className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="unitSystem"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-xs">Unit System</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger data-testid="select-unit-system" className="h-8 text-sm">
-                            <SelectValue />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="metric">Metric (mm)</SelectItem>
-                          <SelectItem value="imperial">Imperial (inch)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </FormItem>
-                  )}
-                />
+              <form className="space-y-3">
+                <FormField control={form.control} name="unitSystem" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-xs">Unit System</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl><SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger></FormControl>
+                      <SelectContent>
+                        <SelectItem value="metric">Metric (mm)</SelectItem>
+                        <SelectItem value="imperial">Imperial (inch)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </FormItem>
+                )} />
 
-                <FormField
-                  control={form.control}
-                  name="inputMode"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-xs">Input Mode</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger data-testid="select-input-mode" className="h-8 text-sm">
-                            <SelectValue />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="module">Module (m)</SelectItem>
-                          <SelectItem value="dp">Diametral Pitch (DP)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </FormItem>
-                  )}
-                />
+                <FormField control={form.control} name="inputMode" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-xs">Input Mode</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl><SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger></FormControl>
+                      <SelectContent>
+                        <SelectItem value="module">Module (m)</SelectItem>
+                        <SelectItem value="dp">Diametral Pitch (DP)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </FormItem>
+                )} />
 
-                <FormField
-                  control={form.control}
-                  name="moduleValue"
-                  render={({ field }) => (
+                <FormField control={form.control} name="moduleValue" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-xs">
+                      {inputMode === "module" ? "Module (m)" : `Diametral Pitch (DP, teeth/${unit === "in" ? "in" : "mm"})`}
+                    </FormLabel>
+                    <FormControl>
+                      <Input type="number" step="0.01" className="h-8 text-sm font-mono"
+                        {...field} onChange={(e) => field.onChange(parseFloat(e.target.value))} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+
+                <FormField control={form.control} name="z1" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-xs">Pinion Teeth (z1)</FormLabel>
+                    <FormControl>
+                      <Input type="number" step="1" className="h-8 text-sm font-mono"
+                        {...field} onChange={(e) => field.onChange(parseInt(e.target.value, 10))} />
+                    </FormControl>
+                    <FormMessage />
+                    {(values.z1 ?? 0) < 12 && (values.z1 ?? 0) >= 6 && (
+                      <p className="text-xs text-amber-400">Warning: z &lt; 12 — undercut risk</p>
+                    )}
+                  </FormItem>
+                )} />
+
+                <FormField control={form.control} name="z2" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-xs">Gear Teeth (z2)</FormLabel>
+                    <FormControl>
+                      <Input type="number" step="1" className="h-8 text-sm font-mono"
+                        {...field} onChange={(e) => field.onChange(parseInt(e.target.value, 10))} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+
+                <FormField control={form.control} name="pressureAngle" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-xs">Pressure Angle (°)</FormLabel>
+                    <Select onValueChange={(v) => field.onChange(parseFloat(v))} value={String(field.value)}>
+                      <FormControl><SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger></FormControl>
+                      <SelectContent>
+                        <SelectItem value="14.5">14.5° (Full depth, older standard)</SelectItem>
+                        <SelectItem value="20">20° (Standard — preferred)</SelectItem>
+                        <SelectItem value="25">25° (Stub tooth, high load)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </FormItem>
+                )} />
+
+                {/* Tooth Proportion Factors */}
+                <div className="border-t border-border/40 pt-3 space-y-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                    Tooth Proportion Factors
+                  </p>
+
+                  <FormField control={form.control} name="addendumFactor" render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-xs">
-                        {inputMode === "module" ? `Module (m)` : `Diametral Pitch (DP, teeth/${unit === "in" ? "in" : "mm"})`}
-                      </FormLabel>
+                      <FormLabel className="text-xs">Addendum Factor (ha)</FormLabel>
                       <FormControl>
-                        <Input
-                          data-testid="input-module"
-                          type="number"
-                          step="0.01"
+                        <Input type="number" step="0.001" min="0.1" max="3"
                           className="h-8 text-sm font-mono"
                           {...field}
-                          onChange={(e) => field.onChange(parseFloat(e.target.value))}
-                        />
+                          onChange={(e) => field.onChange(parseFloat(e.target.value))} />
                       </FormControl>
+                      <p className="text-[10px] text-muted-foreground">a = ha × m = {
+                        values.addendumFactor && values.moduleValue
+                          ? (values.addendumFactor * values.moduleValue).toFixed(4)
+                          : "—"
+                      } {unit}</p>
                       <FormMessage />
                     </FormItem>
-                  )}
-                />
+                  )} />
 
-                <FormField
-                  control={form.control}
-                  name="z1"
-                  render={({ field }) => (
+                  <FormField control={form.control} name="dedendumFactor" render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-xs">Pinion Teeth (z1)</FormLabel>
+                      <FormLabel className="text-xs">Dedendum Factor (hf)</FormLabel>
                       <FormControl>
-                        <Input
-                          data-testid="input-z1"
-                          type="number"
-                          step="1"
+                        <Input type="number" step="0.001" min="0.1" max="3"
                           className="h-8 text-sm font-mono"
                           {...field}
-                          onChange={(e) => field.onChange(parseInt(e.target.value, 10))}
-                        />
+                          onChange={(e) => field.onChange(parseFloat(e.target.value))} />
                       </FormControl>
-                      <FormMessage />
-                      {(values.z1 ?? 0) < 12 && (values.z1 ?? 0) >= 6 && (
-                        <p className="text-xs text-amber-400">Warning: z &lt; 12 — undercut risk. Consider profile shift.</p>
-                      )}
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="z2"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-xs">Gear Teeth (z2)</FormLabel>
-                      <FormControl>
-                        <Input
-                          data-testid="input-z2"
-                          type="number"
-                          step="1"
-                          className="h-8 text-sm font-mono"
-                          {...field}
-                          onChange={(e) => field.onChange(parseInt(e.target.value, 10))}
-                        />
-                      </FormControl>
+                      <p className="text-[10px] text-muted-foreground">b = hf × m = {
+                        values.dedendumFactor && values.moduleValue
+                          ? (values.dedendumFactor * values.moduleValue).toFixed(4)
+                          : "—"
+                      } {unit}</p>
                       <FormMessage />
                     </FormItem>
-                  )}
-                />
+                  )} />
 
-                <FormField
-                  control={form.control}
-                  name="pressureAngle"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-xs">Pressure Angle (°)</FormLabel>
-                      <Select onValueChange={(v) => field.onChange(parseFloat(v))} value={String(field.value)}>
-                        <FormControl>
-                          <SelectTrigger data-testid="select-pressure-angle" className="h-8 text-sm">
-                            <SelectValue />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="14.5">14.5° (Full depth, older standard)</SelectItem>
-                          <SelectItem value="20">20° (Standard — preferred)</SelectItem>
-                          <SelectItem value="25">25° (Stub tooth, high load)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </FormItem>
-                  )}
-                />
+                  <ToothProportionRef />
+                </div>
 
                 <div className="flex gap-2 pt-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => form.reset()}
-                    className="flex items-center gap-1 text-xs"
-                  >
-                    <RotateCcw size={12} />
-                    Reset
+                  <Button type="button" variant="outline" size="sm" onClick={() => form.reset()} className="flex items-center gap-1 text-xs">
+                    <RotateCcw size={12} /> Reset
                   </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    onClick={onSave}
-                    disabled={!results}
-                    className="flex items-center gap-1 text-xs ml-auto"
-                    data-testid="button-save-calc"
-                  >
-                    <Save size={12} />
-                    {saved ? "Saved" : "Save for Report"}
+                  <Button type="button" size="sm" onClick={onSave} disabled={!results} className="flex items-center gap-1 text-xs ml-auto">
+                    <Save size={12} /> {saved ? "Saved" : "Save for Report"}
                   </Button>
                 </div>
               </form>
             </Form>
           </div>
 
-          {/* Quick Summary */}
           {results && (
             <div className="border border-border rounded-lg p-3 bg-card">
               <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2">Quick Summary</h3>
               <div className="space-y-1">
-                {results.filter(r => ["Gear Ratio","Centre Distance","Outside Diameter Pinion","Outside Diameter Gear"].includes(r.label)).map((r) => (
+                {results.filter(r => ["Gear Ratio","Centre Distance","Outside Diameter Pinion","Outside Diameter Gear","Whole Depth","Depth of Cut"].includes(r.label)).map((r) => (
                   <div key={r.label} className="flex justify-between text-xs">
-                    <span className="text-muted-foreground">{r.label}</span>
-                    <span className="font-mono text-primary">{r.value.toFixed(4)} {r.unit}</span>
+                    <span className="text-muted-foreground truncate pr-2">{r.label}</span>
+                    <span className="font-mono text-primary shrink-0">{r.value.toFixed(4)} {r.unit}</span>
                   </div>
                 ))}
               </div>
@@ -265,9 +257,7 @@ export default function SpurGearPage() {
           </h2>
           {results ? (
             <div className="grid sm:grid-cols-2 gap-2">
-              {results.map((r, i) => (
-                <ResultRow key={i} result={r} index={i} />
-              ))}
+              {results.map((r, i) => <ResultRow key={i} result={r} index={i} />)}
             </div>
           ) : (
             <div className="border border-border rounded-lg p-8 bg-card text-center text-sm text-muted-foreground">
