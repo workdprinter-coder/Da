@@ -18,6 +18,7 @@ type HelicalForm = z.infer<typeof helicalLeadInputSchema>;
 type WormForm = z.infer<typeof wormLeadInputSchema>;
 type BevelForm = z.infer<typeof spiralBevelLeadInputSchema>;
 
+
 function SectionHeader({ title, subtitle }: { title: string; subtitle: string }) {
   return (
     <div className="border-b border-border pb-2 mb-4">
@@ -177,18 +178,10 @@ function WormSection({ unit }: { unit: string }) {
   );
 }
 
-function SpiralBevelSection({ unit }: { unit: string }) {
-  const { settings } = useCalculator();
+function SpiralBevelSection() {
   const form = useForm<BevelForm>({
     resolver: zodResolver(spiralBevelLeadInputSchema),
-    defaultValues: {
-      unitSystem: settings.unitSystem,
-      mn: 3,
-      z: 17,
-      delta_deg: 21.57,
-      spiralAngle: 35,
-      faceWidthRatio: 0.3,
-    },
+    defaultValues: { mn: 3, z: 15, spiralAngle: 35 },
   });
   const values = form.watch();
   const results = useMemo(() => {
@@ -197,66 +190,134 @@ function SpiralBevelSection({ unit }: { unit: string }) {
     try { return calculateSpiralBevelLead(p.data); } catch { return null; }
   }, [values]);
 
+  const mn   = values.mn ?? 0;
+  const z    = values.z ?? 0;
+  const beta = values.spiralAngle ?? 0;
+  const valid = mn > 0 && z > 0 && beta > 0 && beta < 90;
+  const D    = mn * z;
+  const tanB = valid ? Math.tan((beta * Math.PI) / 180) : 0;
+  const L_mm = valid ? (Math.PI * D) / tanB : 0;
+  const L_in = L_mm / 25.4;
+  const r    = (n: number, dp = 2) => n.toFixed(dp);
+
   return (
     <div className="grid lg:grid-cols-[280px_1fr] gap-6">
-      <div className="border border-border rounded-lg p-4 bg-card space-y-3">
-        <SectionHeader title="Spiral Bevel Lead" subtitle="L = π × dm / tan(β) at mean cone distance" />
-        <Form {...form}>
-          <form className="space-y-3">
-            {[
-              { name: "mn" as const, label: "Normal Module (mn)", step: "0.5" },
-              { name: "z" as const, label: "Number of Teeth (z)", step: "1" },
-              { name: "delta_deg" as const, label: "Pitch Cone Angle δ (°)", step: "0.1" },
-              { name: "spiralAngle" as const, label: "Mean Spiral Angle β (°)", step: "0.5" },
-            ].map(({ name, label, step }) => (
-              <FormField key={name} control={form.control} name={name} render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-xs">{label}</FormLabel>
-                  <FormControl>
-                    <Input type="number" step={step} className="h-8 text-sm font-mono"
-                      {...field} onChange={(e) => {
-                        const v = parseFloat(e.target.value);
-                        field.onChange(isNaN(v) ? 0 : (name === "z" ? Math.round(v) : v));
-                      }} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
-            ))}
-            <FormField control={form.control} name="faceWidthRatio" render={({ field }) => (
-              <FormItem>
-                <FormLabel className="text-xs">Face Width Ratio (F/Re)</FormLabel>
-                <Select onValueChange={(v) => field.onChange(parseFloat(v))} value={String(field.value ?? 0.3)}>
-                  <FormControl><SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger></FormControl>
-                  <SelectContent>
-                    <SelectItem value="0.25">0.25</SelectItem>
-                    <SelectItem value="0.30">0.30 (Standard)</SelectItem>
-                    <SelectItem value="0.33">0.33 (Max)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </FormItem>
-            )} />
-          </form>
-        </Form>
-        {results && (
-          <div className="border border-primary/20 rounded p-3 bg-primary/5 mt-2">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-widest mb-1">Lead at Mean Pitch Circle</p>
-            <p className="font-mono text-lg font-bold text-primary">
-              {results.find(r => r.label === "Lead at Mean Pitch Circle")?.value.toFixed(4)} {unit}
-            </p>
-            <p className="text-[10px] text-muted-foreground mt-0.5">π × dm / tan(β)</p>
-          </div>
-        )}
+      <div className="space-y-4">
+        <div className="border border-border rounded-lg p-4 bg-card space-y-3">
+          <SectionHeader
+            title="Spiral Bevel — Equivalent Machining Lead"
+            subtitle="L = (π × D) ÷ tan(β)  where D = m × z"
+          />
+          <Form {...form}>
+            <form className="space-y-3">
+              {([
+                { name: "mn"          as const, label: "Module (m)",            step: "0.01", isInt: false },
+                { name: "z"           as const, label: "Number of Teeth (z)",   step: "1",    isInt: true  },
+                { name: "spiralAngle" as const, label: "Spiral Angle β (°)",    step: "0.5",  isInt: false },
+              ] as const).map(({ name, label, step, isInt }) => (
+                <FormField key={name} control={form.control} name={name} render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-xs">{label}</FormLabel>
+                    <FormControl>
+                      <Input type="number" step={step} className="h-8 text-sm font-mono"
+                        {...field} value={field.value ?? ""}
+                        onChange={(e) => {
+                          const v = parseFloat(e.target.value);
+                          field.onChange(isNaN(v) ? undefined : (isInt ? Math.round(v) : v));
+                        }} />
+                    </FormControl>
+                    {name === "spiralAngle" && (
+                      <p className="text-[10px] text-muted-foreground">Range: 1° – 89° · Standard: 35°</p>
+                    )}
+                    <FormMessage />
+                  </FormItem>
+                )} />
+              ))}
+            </form>
+          </Form>
+
+          {valid && results && (
+            <div className="border border-primary/20 rounded p-3 bg-primary/5 space-y-1">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-widest">Result</p>
+              <p className="font-mono text-lg font-bold text-primary">{r(L_mm)} mm</p>
+              <p className="font-mono text-sm text-primary/70">{r(L_in)} inch</p>
+              <p className="text-[10px] text-muted-foreground">(π × D) ÷ tan(β)</p>
+            </div>
+          )}
+        </div>
+
+        {/* Engineering note */}
+        <div className="border border-amber-700/40 rounded-lg p-3 bg-amber-950/10">
+          <p className="text-[10px] font-semibold text-amber-400 mb-1">Engineering Note</p>
+          <p className="text-[10px] text-amber-300/80 leading-relaxed">
+            Equivalent Machining Lead is intended for workshop setup and engineering calculations only.
+            A spiral bevel gear does not have a single constant physical lead like a helical gear or worm.
+            This value is calculated from the pitch diameter and spiral angle for machining setup.
+          </p>
+        </div>
       </div>
-      <div>
-        <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">Step-by-Step Calculation</h3>
+
+      <div className="space-y-4">
+        <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Step-by-Step Calculation</h3>
+
         {results ? (
           <div className="space-y-2">
-            {results.map((r, i) => <ResultRow key={i} result={r} index={i} />)}
+            {results.map((res, i) => <ResultRow key={i} result={res} index={i} />)}
           </div>
         ) : (
           <div className="border border-border rounded-lg p-8 bg-card text-center text-sm text-muted-foreground">
             Enter valid inputs to see lead calculation
+          </div>
+        )}
+
+        {/* Handbook-style steps */}
+        {valid && results && (
+          <div className="border border-border rounded-lg bg-card overflow-hidden">
+            <div className="px-4 py-2 border-b border-border bg-muted/20">
+              <h4 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Calculation Steps</h4>
+            </div>
+            <div className="divide-y divide-border/40">
+              <div className="px-4 py-3 space-y-1">
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-cyan-400/70">Step 1 — Pitch Diameter</p>
+                {[
+                  "D = Module × Teeth",
+                  `D = ${r(mn)} × ${z}`,
+                  `D = ${r(D)} mm`,
+                ].map((line, i) => (
+                  <div key={i} className="flex gap-3 text-xs font-mono">
+                    <span className="text-muted-foreground w-4 shrink-0">▸</span>
+                    <span className={i === 2 ? "text-primary font-semibold" : "text-foreground/80"}>{line}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="px-4 py-3 space-y-1">
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-cyan-400/70">Step 2 — Equivalent Lead</p>
+                {[
+                  "Lead = (π × D) ÷ tan(β)",
+                  `Lead = (${Math.PI.toFixed(9)} × ${r(D)}) ÷ tan(${beta}°)`,
+                  `Lead = ${(Math.PI * D).toFixed(9)} ÷ ${tanB.toFixed(9)}`,
+                  `Lead = ${r(L_mm)} mm`,
+                ].map((line, i) => (
+                  <div key={i} className="flex gap-3 text-xs font-mono">
+                    <span className="text-muted-foreground w-4 shrink-0">▸</span>
+                    <span className={i === 3 ? "text-primary font-semibold" : "text-foreground/80"}>{line}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="px-4 py-3 space-y-1">
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-cyan-400/70">Step 3 — Lead in Inches</p>
+                {[
+                  "Lead (inch) = Lead (mm) ÷ 25.4",
+                  `Lead = ${r(L_mm)} ÷ 25.4`,
+                  `Lead = ${r(L_in)} inch`,
+                ].map((line, i) => (
+                  <div key={i} className="flex gap-3 text-xs font-mono">
+                    <span className="text-muted-foreground w-4 shrink-0">▸</span>
+                    <span className={i === 2 ? "text-primary font-semibold" : "text-foreground/80"}>{line}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -299,7 +360,7 @@ export default function LeadCalculatorPage() {
           <WormSection unit={unit} />
         </TabsContent>
         <TabsContent value="spiral-bevel" className="mt-4">
-          <SpiralBevelSection unit={unit} />
+          <SpiralBevelSection />
         </TabsContent>
       </Tabs>
     </div>

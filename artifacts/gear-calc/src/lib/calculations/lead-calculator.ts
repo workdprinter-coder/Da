@@ -170,134 +170,84 @@ export function calculateWormLead(input: WormLeadInput): CalculationResult[] {
 // ── Spiral Bevel Lead ──────────────────────────────────────────────────────
 
 export const spiralBevelLeadInputSchema = z.object({
-  unitSystem: z.enum(["metric", "imperial"]),
-  mn: z.number().min(0.1),
-  z: z.number().int().min(5),
-  delta_deg: z.number().min(1).max(89),
-  spiralAngle: z.number().min(5).max(60),
-  faceWidthRatio: z.number().min(0.1).max(0.4).optional(),
+  mn: z.number().min(0.01, "Module must be > 0"),
+  z: z.number().int().min(1, "Teeth must be ≥ 1"),
+  spiralAngle: z.number().min(1, "Spiral angle must be > 0°").max(89, "Spiral angle must be < 90°"),
 });
 
 export type SpiralBevelLeadInput = z.infer<typeof spiralBevelLeadInputSchema>;
 
 export function calculateSpiralBevelLead(input: SpiralBevelLeadInput): CalculationResult[] {
-  const { unitSystem, mn, z, delta_deg, spiralAngle, faceWidthRatio: fwRatio } = input;
+  const { mn, z, spiralAngle } = input;
 
-  const delta = (delta_deg * Math.PI) / 180;
-  const beta = (spiralAngle * Math.PI) / 180;
+  const beta   = (spiralAngle * Math.PI) / 180;
+  const tanB   = Math.tan(beta);
+  const D      = mn * z;
+  const L_mm   = (Math.PI * D) / tanB;
+  const L_in   = L_mm / 25.4;
 
-  // Outer cone distance from delta and z (approximate, assuming standard gear)
-  // For a given pitch cone angle and teeth count:
-  // de = mn × z / (cos(delta) for transverse module)
-  // Re = de / (2 × sin(delta))
-  // Using outer module relationship:
-  const Re_approx = mn * z / (2 * Math.sin(delta));
-  const fwRatioVal = fwRatio ?? 0.3;
-  const F = fwRatioVal * Re_approx;
-  const Rm = Re_approx - F / 2;
-  const mm = mn * Rm / Re_approx;
-
-  // Mean pitch diameter at mid-face
-  const dm = 2 * Rm * Math.sin(delta);
-
-  // Mean lead (Gleason face hobbing concept: lead at mean pitch circle)
-  const lead_mean = Math.PI * dm / Math.tan(beta);
-
-  // For Gleason face milling (fixed setting), the cutter describes a helical
-  // path. The equivalent machining lead relates cutter rotation to blank rotation:
-  const pa_mean = Math.PI * mm / Math.sin(beta);   // mean axial pitch
-  const lead_axial = z * pa_mean;                   // machining lead (z × mean axial pitch)
-
-  const isImperial = unitSystem === "imperial";
-  const unit = isImperial ? "in" : "mm";
-  const cv = (val: number) => (isImperial ? val / 25.4 : val);
   const fmt = (n: number, dp = 4) => n.toFixed(dp);
 
   return [
     {
-      label: "Pitch Cone Angle",
-      symbol: "δ",
+      label: "Module",
+      symbol: "m",
       formula: "User input",
-      variables: "δ = Pitch cone angle of this member",
-      substitution: `${delta_deg}°`,
-      value: delta_deg,
-      unit: "°",
+      variables: "m = Module (mm)",
+      substitution: `${fmt(mn)} mm`,
+      value: mn,
+      unit: "mm",
     },
     {
-      label: "Mean Spiral Angle",
+      label: "Number of Teeth",
+      symbol: "z",
+      formula: "User input",
+      variables: "z = Number of teeth",
+      substitution: `${z}`,
+      value: z,
+      unit: "",
+    },
+    {
+      label: "Spiral Angle",
       symbol: "β",
       formula: "User input",
-      variables: "β = Mean spiral angle",
+      variables: "β = Mean spiral angle (degrees)",
       substitution: `${spiralAngle}°`,
       value: spiralAngle,
       unit: "°",
-      note: "Standard Gleason: β = 35°. Measured at mean cone distance.",
+      note: "Standard Gleason: 35°",
     },
     {
-      label: "Outer Cone Distance (Approx)",
-      symbol: "Re",
-      formula: "mn × z / (2 × sin(δ))",
-      variables: "mn = Normal module, z = Teeth, δ = Pitch cone angle",
-      substitution: `${fmt(cv(mn))} × ${z} / (2 × sin(${delta_deg}°))`,
-      value: cv(Re_approx),
-      unit,
+      label: "Pitch Diameter",
+      symbol: "D",
+      formula: "m × z",
+      variables: "m = Module, z = Number of teeth",
+      substitution: `${fmt(mn)} × ${z}`,
+      value: D,
+      unit: "mm",
+      note: "D = Module × Teeth",
     },
     {
-      label: "Mean Cone Distance",
-      symbol: "Rm",
-      formula: "Re − F/2",
-      variables: `Re = Outer cone dist, F/Re = ${fwRatioVal}`,
-      substitution: `${fmt(cv(Re_approx))} − ${fmt(cv(F))}/2`,
-      value: cv(Rm),
-      unit,
-    },
-    {
-      label: "Mean Pitch Diameter",
-      symbol: "dm",
-      formula: "2 × Rm × sin(δ)",
-      variables: "Rm = Mean cone distance, δ = Pitch cone angle",
-      substitution: `2 × ${fmt(cv(Rm))} × sin(${delta_deg}°)`,
-      value: cv(dm),
-      unit,
-    },
-    {
-      label: "Mean Module",
-      symbol: "mm",
-      formula: "mn × Rm / Re",
-      variables: "mn = Normal module, Rm = Mean, Re = Outer cone dist",
-      substitution: `${fmt(cv(mn))} × ${fmt(cv(Rm))} / ${fmt(cv(Re_approx))}`,
-      value: cv(mm),
-      unit,
-    },
-    {
-      label: "Mean Axial Pitch",
-      symbol: "pa",
-      formula: "π × mm / sin(β)",
-      variables: "mm = Mean module, β = Mean spiral angle",
-      substitution: `π × ${fmt(cv(mm))} / sin(${spiralAngle}°)`,
-      value: cv(pa_mean),
-      unit,
-    },
-    {
-      label: "Lead at Mean Pitch Circle",
+      label: "Equivalent Machining Lead (mm)",
       symbol: "L",
-      formula: "π × dm / tan(β)",
-      variables: "dm = Mean pitch diameter, β = Mean spiral angle",
-      substitution: `π × ${fmt(cv(dm))} / tan(${spiralAngle}°)`,
-      value: cv(lead_mean),
-      unit,
-      note: "Lead at the mean pitch circle — primary lead value for this gear member",
+      formula: "(π × D) / tan(β)",
+      variables: `D = ${fmt(D)} mm, β = ${spiralAngle}°`,
+      substitution: `(π × ${fmt(D)}) / tan(${spiralAngle}°) = ${fmt(Math.PI * D)} / ${fmt(tanB, 9)}`,
+      value: L_mm,
+      unit: "mm",
       green: true,
+      note: "Equivalent machining lead — for setup calculations only. Not the physical constant lead of the gear.",
     },
     {
-      label: "Equivalent Machining Lead",
-      symbol: "Lm",
-      formula: "z × pa",
-      variables: "z = Number of teeth, pa = Mean axial pitch",
-      substitution: `${z} × ${fmt(cv(pa_mean))}`,
-      value: cv(lead_axial),
-      unit,
-      note: "Used for differential gear train setup on bevel gear generator or CNC machine (face milling method). Confirms blank rotation to cutter rotation ratio.",
+      label: "Equivalent Machining Lead (inch)",
+      symbol: "L",
+      formula: "L (mm) / 25.4",
+      variables: `L = ${fmt(L_mm)} mm`,
+      substitution: `${fmt(L_mm)} / 25.4`,
+      value: L_in,
+      unit: "in",
+      green: true,
+      note: "Inch conversion of equivalent machining lead",
     },
   ];
 }
