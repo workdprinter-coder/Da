@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import {
   Home, Settings, Database, Wrench, FileText,
-  ChevronLeft, ChevronRight, CircleDot, Waves, Triangle, Cog, Menu
+  ChevronLeft, ChevronRight, CircleDot, Waves, Triangle, Cog, Menu,
+  Hexagon, ArrowRightLeft, Calculator
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCalculator } from "@/context/calculator-context";
@@ -12,12 +13,24 @@ const NAV_ITEMS = [
   { href: "/spur-gear", label: "Spur Gear", icon: Cog },
   { href: "/helical-gear", label: "Helical Gear", icon: CircleDot },
   { href: "/worm-gear", label: "Worm Gear", icon: Waves },
+  { href: "/straight-bevel", label: "Straight Bevel", icon: Hexagon },
   { href: "/spiral-bevel", label: "Spiral Bevel", icon: Triangle },
+  { href: "/rack-pinion", label: "Rack & Pinion", icon: ArrowRightLeft },
+  { href: "/lead-calc", label: "Lead Calculator", icon: Calculator },
   { href: "/materials", label: "Materials", icon: Database },
   { href: "/tools", label: "Eng. Tools", icon: Wrench },
   { href: "/reports", label: "Reports", icon: FileText },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
+
+const BADGE_MAP: Record<string, string> = {
+  "/spur-gear": "spur",
+  "/helical-gear": "helical",
+  "/worm-gear": "worm",
+  "/straight-bevel": "straight-bevel",
+  "/spiral-bevel": "spiral-bevel",
+  "/rack-pinion": "rack-pinion",
+};
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
@@ -26,20 +39,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const { storedCalcs } = useCalculator();
 
   const getBadge = (href: string) => {
-    const map: Record<string, string> = {
-      "/spur-gear": "spur",
-      "/helical-gear": "helical",
-      "/worm-gear": "worm",
-      "/spiral-bevel": "spiral-bevel",
-    };
-    const key = map[href];
+    const key = BADGE_MAP[href];
     if (key && storedCalcs[key]) return "•";
     return null;
   };
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
-      {/* Mobile overlay */}
       {mobileOpen && (
         <div
           className="fixed inset-0 z-20 bg-black/60 md:hidden"
@@ -47,7 +53,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         />
       )}
 
-      {/* Sidebar */}
       <aside
         className={cn(
           "fixed md:relative z-30 flex flex-col bg-sidebar border-r border-sidebar-border transition-all duration-200 h-full",
@@ -55,7 +60,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         )}
       >
-        {/* Header */}
         <div className="flex items-center justify-between px-3 h-14 border-b border-sidebar-border shrink-0">
           {!collapsed && (
             <span className="text-xs font-semibold tracking-widest uppercase text-sidebar-foreground/60 truncate">
@@ -63,7 +67,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             </span>
           )}
           <button
-            data-testid="sidebar-toggle"
             onClick={() => setCollapsed((c) => !c)}
             className="ml-auto p-1 rounded text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors hidden md:flex items-center justify-center"
           >
@@ -71,7 +74,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </button>
         </div>
 
-        {/* Nav */}
         <nav className="flex-1 overflow-y-auto py-2 space-y-0.5 px-1">
           {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
             const isActive = location === href || (href !== "/" && location.startsWith(href));
@@ -80,7 +82,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <Link
                 key={href}
                 href={href}
-                data-testid={`nav-${label.toLowerCase().replace(/\s+/g, "-")}`}
                 onClick={() => setMobileOpen(false)}
                 className={cn(
                   "flex items-center gap-3 px-2 py-2 rounded text-sm transition-colors relative",
@@ -91,9 +92,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 )}
               >
                 <Icon size={16} className="shrink-0" />
-                {!collapsed && (
-                  <span className="truncate">{label}</span>
-                )}
+                {!collapsed && <span className="truncate">{label}</span>}
                 {badge && !collapsed && (
                   <span className="ml-auto text-primary text-lg leading-none">{badge}</span>
                 )}
@@ -105,25 +104,17 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           })}
         </nav>
 
-        {/* Footer */}
         {!collapsed && (
           <div className="px-3 py-2 border-t border-sidebar-border">
-            <p className="text-[10px] text-sidebar-foreground/30 leading-tight">
-              Engineering Calculator
-            </p>
-            <p className="text-[10px] text-sidebar-foreground/20">
-              v1.0 — Metric & Imperial
-            </p>
+            <p className="text-[10px] text-sidebar-foreground/30 leading-tight">Engineering Calculator</p>
+            <p className="text-[10px] text-sidebar-foreground/20">v2.0 — Metric & Imperial</p>
           </div>
         )}
       </aside>
 
-      {/* Main */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Mobile topbar */}
         <div className="md:hidden flex items-center gap-3 px-4 h-12 border-b border-border bg-background shrink-0">
           <button
-            data-testid="mobile-menu"
             onClick={() => setMobileOpen(true)}
             className="text-muted-foreground hover:text-foreground"
           >

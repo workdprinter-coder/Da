@@ -10,6 +10,9 @@ import SpurGearPage from "@/pages/spur-gear";
 import HelicalGearPage from "@/pages/helical-gear";
 import WormGearPage from "@/pages/worm-gear";
 import SpiralBevelPage from "@/pages/spiral-bevel";
+import StraightBevelPage from "@/pages/straight-bevel";
+import RackPinionPage from "@/pages/rack-pinion";
+import LeadCalculatorPage from "@/pages/lead-calculator";
 import MaterialsPage from "@/pages/materials";
 import ToolsPage from "@/pages/tools";
 import ReportsPage from "@/pages/reports";
@@ -26,6 +29,9 @@ function Router() {
         <Route path="/helical-gear" component={HelicalGearPage} />
         <Route path="/worm-gear" component={WormGearPage} />
         <Route path="/spiral-bevel" component={SpiralBevelPage} />
+        <Route path="/straight-bevel" component={StraightBevelPage} />
+        <Route path="/rack-pinion" component={RackPinionPage} />
+        <Route path="/lead-calc" component={LeadCalculatorPage} />
         <Route path="/materials" component={MaterialsPage} />
         <Route path="/tools" component={ToolsPage} />
         <Route path="/reports" component={ReportsPage} />
