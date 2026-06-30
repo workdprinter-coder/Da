@@ -31,7 +31,7 @@ export function calculateHelicalGear(input: HelicalGearInput): CalculationResult
   const d1 = mt * z1;
   const d2 = mt * z2;
 
-  // Tooth proportions using user factors (applied in the normal plane)
+  // Tooth proportions (normal plane)
   const a = addendumFactor * mn;
   const b = dedendumFactor * mn;
   const h = a + b;
@@ -45,31 +45,37 @@ export function calculateHelicalGear(input: HelicalGearInput): CalculationResult
   const db1 = d1 * Math.cos(phi_t);
   const db2 = d2 * Math.cos(phi_t);
 
-  const pn = Math.PI * mn;
-  const pt = Math.PI * mt;
-  const pa = pn / Math.sin(beta);
+  // Pitches
+  const pn = Math.PI * mn;              // normal circular pitch
+  const pt = Math.PI * mt;             // transverse circular pitch
+  const pa = pn / Math.sin(beta);      // axial pitch
 
-  const lead1 = Math.PI * d1 / Math.tan(beta);
+  // Lead
+  const lead1 = Math.PI * d1 / Math.tan(beta);   // = z1 × pa
   const lead2 = Math.PI * d2 / Math.tan(beta);
-  const leadAngle1 = 90 - helixAngle;
 
   const C = mt * (z1 + z2) / 2;
 
+  // Virtual (equivalent) teeth
   const zv1 = z1 / Math.pow(Math.cos(beta), 3);
   const zv2 = z2 / Math.pow(Math.cos(beta), 3);
 
   const F = faceWidth ?? (10 * mn);
   const eps_beta = F * Math.sin(beta) / pn;
 
+  // Tooth thickness (normal plane, at pitch cylinder)
+  const tn = pn / 2;   // normal tooth thickness = π×mn/2
+  const tt = pt / 2;   // transverse tooth thickness = π×mt/2
+
   const getCutterNum = (zv: number): string => {
     if (zv >= 135) return "#1 (135 teeth to rack)";
-    if (zv >= 55) return "#2 (55-134 teeth)";
-    if (zv >= 35) return "#3 (35-54 teeth)";
-    if (zv >= 26) return "#4 (26-34 teeth)";
-    if (zv >= 21) return "#5 (21-25 teeth)";
-    if (zv >= 17) return "#6 (17-20 teeth)";
-    if (zv >= 14) return "#7 (14-16 teeth)";
-    return "#8 (12-13 teeth)";
+    if (zv >= 55) return "#2 (55–134 teeth)";
+    if (zv >= 35) return "#3 (35–54 teeth)";
+    if (zv >= 26) return "#4 (26–34 teeth)";
+    if (zv >= 21) return "#5 (21–25 teeth)";
+    if (zv >= 17) return "#6 (17–20 teeth)";
+    if (zv >= 14) return "#7 (14–16 teeth)";
+    return "#8 (12–13 teeth)";
   };
 
   const isImperial = unitSystem === "imperial";
@@ -88,6 +94,16 @@ export function calculateHelicalGear(input: HelicalGearInput): CalculationResult
       unit: "",
     },
     {
+      label: "Normal Module",
+      symbol: "mn",
+      formula: "User input",
+      variables: "mn = Normal module (in normal cross-section plane)",
+      substitution: fmt(cv(mn)),
+      value: cv(mn),
+      unit,
+      note: "This is the standard module used to select the hob/cutter",
+    },
+    {
       label: "Transverse Module",
       symbol: "mt",
       formula: "mn / cos(β)",
@@ -95,7 +111,17 @@ export function calculateHelicalGear(input: HelicalGearInput): CalculationResult
       substitution: `${fmt(cv(mn))} / cos(${helixAngle}°)`,
       value: cv(mt),
       unit,
-      note: "Transverse plane module — larger than normal module",
+      note: "Transverse plane module — always larger than normal module",
+    },
+    {
+      label: "Helix Angle",
+      symbol: "β",
+      formula: "User input",
+      variables: `β = ${helixAngle}°, Hand = ${hand === "right" ? "Right (RH)" : "Left (LH)"}`,
+      substitution: `${helixAngle}°`,
+      value: helixAngle,
+      unit: "°",
+      note: `${hand === "right" ? "RH" : "LH"} helix — mating gear must be opposite hand for parallel axis`,
     },
     {
       label: "Transverse Pressure Angle",
@@ -108,7 +134,7 @@ export function calculateHelicalGear(input: HelicalGearInput): CalculationResult
       note: "Always larger than normal pressure angle",
     },
     {
-      label: "Pitch Diameter Pinion",
+      label: "Pitch Diameter — Pinion",
       symbol: "d1",
       formula: "mt × z1",
       variables: "mt = Transverse module, z1 = Pinion teeth",
@@ -117,7 +143,7 @@ export function calculateHelicalGear(input: HelicalGearInput): CalculationResult
       unit,
     },
     {
-      label: "Pitch Diameter Gear",
+      label: "Pitch Diameter — Gear",
       symbol: "d2",
       formula: "mt × z2",
       variables: "mt = Transverse module, z2 = Gear teeth",
@@ -133,7 +159,7 @@ export function calculateHelicalGear(input: HelicalGearInput): CalculationResult
       substitution: `${fmt(addendumFactor)} × ${fmt(cv(mn))}`,
       value: cv(a),
       unit,
-      note: "Tooth height above pitch cylinder (normal plane)",
+      note: "Tooth height above pitch cylinder — measured in normal plane",
     },
     {
       label: "Dedendum",
@@ -143,7 +169,6 @@ export function calculateHelicalGear(input: HelicalGearInput): CalculationResult
       substitution: `${fmt(dedendumFactor)} × ${fmt(cv(mn))}`,
       value: cv(b),
       unit,
-      note: "Tooth depth below pitch cylinder (normal plane)",
     },
     {
       label: "Whole Depth",
@@ -153,7 +178,6 @@ export function calculateHelicalGear(input: HelicalGearInput): CalculationResult
       substitution: `(${fmt(addendumFactor)} + ${fmt(dedendumFactor)}) × ${fmt(cv(mn))}`,
       value: cv(h),
       unit,
-      note: "Total tooth height = addendum + dedendum",
     },
     {
       label: "Working Depth",
@@ -163,7 +187,6 @@ export function calculateHelicalGear(input: HelicalGearInput): CalculationResult
       substitution: `2 × ${fmt(addendumFactor)} × ${fmt(cv(mn))}`,
       value: cv(hw),
       unit,
-      note: "Depth of engagement between mating teeth",
     },
     {
       label: "Depth of Cut",
@@ -176,7 +199,7 @@ export function calculateHelicalGear(input: HelicalGearInput): CalculationResult
       note: "Hob / cutter depth setting = whole depth",
     },
     {
-      label: "Outside Diameter Pinion",
+      label: "Outside Diameter — Pinion",
       symbol: "da1",
       formula: "d1 + 2 × ha × mn",
       variables: `d1 = Pitch diameter, ha = ${fmt(addendumFactor)}, mn = Normal module`,
@@ -185,7 +208,7 @@ export function calculateHelicalGear(input: HelicalGearInput): CalculationResult
       unit,
     },
     {
-      label: "Outside Diameter Gear",
+      label: "Outside Diameter — Gear",
       symbol: "da2",
       formula: "d2 + 2 × ha × mn",
       variables: `d2 = Pitch diameter, ha = ${fmt(addendumFactor)}, mn = Normal module`,
@@ -194,25 +217,25 @@ export function calculateHelicalGear(input: HelicalGearInput): CalculationResult
       unit,
     },
     {
-      label: "Root Diameter Pinion",
+      label: "Root Diameter — Pinion",
       symbol: "df1",
-      formula: "d1 - 2 × hf × mn",
+      formula: "d1 − 2 × hf × mn",
       variables: `d1 = Pitch diameter, hf = ${fmt(dedendumFactor)}, mn = Normal module`,
-      substitution: `${fmt(cv(d1))} - 2 × ${fmt(dedendumFactor)} × ${fmt(cv(mn))}`,
+      substitution: `${fmt(cv(d1))} − 2 × ${fmt(dedendumFactor)} × ${fmt(cv(mn))}`,
       value: cv(df1),
       unit,
     },
     {
-      label: "Root Diameter Gear",
+      label: "Root Diameter — Gear",
       symbol: "df2",
-      formula: "d2 - 2 × hf × mn",
+      formula: "d2 − 2 × hf × mn",
       variables: `d2 = Pitch diameter, hf = ${fmt(dedendumFactor)}, mn = Normal module`,
-      substitution: `${fmt(cv(d2))} - 2 × ${fmt(dedendumFactor)} × ${fmt(cv(mn))}`,
+      substitution: `${fmt(cv(d2))} − 2 × ${fmt(dedendumFactor)} × ${fmt(cv(mn))}`,
       value: cv(df2),
       unit,
     },
     {
-      label: "Base Diameter Pinion",
+      label: "Base Diameter — Pinion",
       symbol: "db1",
       formula: "d1 × cos(φt)",
       variables: "d1 = Pitch diameter, φt = Transverse pressure angle",
@@ -221,7 +244,7 @@ export function calculateHelicalGear(input: HelicalGearInput): CalculationResult
       unit,
     },
     {
-      label: "Base Diameter Gear",
+      label: "Base Diameter — Gear",
       symbol: "db2",
       formula: "d2 × cos(φt)",
       variables: "d2 = Pitch diameter, φt = Transverse pressure angle",
@@ -257,44 +280,57 @@ export function calculateHelicalGear(input: HelicalGearInput): CalculationResult
       unit,
     },
     {
-      label: "Lead (Pinion)",
+      label: "Normal Tooth Thickness",
+      symbol: "tn",
+      formula: "π × mn / 2",
+      variables: "mn = Normal module (standard, no profile shift)",
+      substitution: `π × ${fmt(cv(mn))} / 2`,
+      value: cv(tn),
+      unit,
+      note: "Tooth thickness at pitch cylinder, measured in normal cross-section",
+    },
+    {
+      label: "Transverse Tooth Thickness",
+      symbol: "tt",
+      formula: "π × mt / 2",
+      variables: "mt = Transverse module",
+      substitution: `π × ${fmt(cv(mt))} / 2`,
+      value: cv(tt),
+      unit,
+      note: "Tooth thickness at pitch cylinder, measured in transverse cross-section",
+    },
+    {
+      label: "Lead — Pinion",
       symbol: "L1",
       formula: "π × d1 / tan(β)",
       variables: "d1 = Pinion pitch diameter, β = Helix angle",
       substitution: `π × ${fmt(cv(d1))} / tan(${helixAngle}°)`,
       value: cv(lead1),
       unit,
-      note: "Axial advance per revolution of pinion",
+      note: `Lead = ${fmt(cv(lead1), 4)} ${unit}. Also = z1 × pa = ${z1} × ${fmt(cv(pa), 4)} = ${fmt(cv(z1 * pa), 4)} ${unit}`,
+      green: true,
     },
     {
-      label: "Lead (Gear)",
+      label: "Lead — Gear",
       symbol: "L2",
       formula: "π × d2 / tan(β)",
       variables: "d2 = Gear pitch diameter, β = Helix angle",
       substitution: `π × ${fmt(cv(d2))} / tan(${helixAngle}°)`,
       value: cv(lead2),
       unit,
-    },
-    {
-      label: "Lead Angle",
-      symbol: "λ",
-      formula: "90° − β",
-      variables: "β = Helix angle",
-      substitution: `90° − ${helixAngle}°`,
-      value: leadAngle1,
-      unit: "°",
+      note: `Also = z2 × pa = ${z2} × ${fmt(cv(pa), 4)} = ${fmt(cv(z2 * pa), 4)} ${unit}`,
     },
     {
       label: "Centre Distance",
       symbol: "C",
-      formula: "mt(z1+z2)/2",
+      formula: "mt(z1+z2) / 2",
       variables: "mt = Transverse module, z1, z2 = teeth",
       substitution: `${fmt(cv(mt))}(${z1}+${z2})/2`,
       value: cv(C),
       unit,
     },
     {
-      label: "Virtual (Equivalent) Teeth Pinion",
+      label: "Virtual Teeth — Pinion",
       symbol: "zv1",
       formula: "z1 / cos³(β)",
       variables: "z1 = Pinion teeth, β = Helix angle",
@@ -304,7 +340,7 @@ export function calculateHelicalGear(input: HelicalGearInput): CalculationResult
       note: "Used to select gear cutter number",
     },
     {
-      label: "Virtual (Equivalent) Teeth Gear",
+      label: "Virtual Teeth — Gear",
       symbol: "zv2",
       formula: "z2 / cos³(β)",
       variables: "z2 = Gear teeth, β = Helix angle",
@@ -320,27 +356,28 @@ export function calculateHelicalGear(input: HelicalGearInput): CalculationResult
       substitution: `${fmt(cv(F))} × sin(${helixAngle}°) / (π × ${fmt(cv(mn))})`,
       value: eps_beta,
       unit: "",
-      note: "Should be > 1.0 for smooth helical engagement",
+      warning: eps_beta < 1.0,
+      note: eps_beta < 1.0 ? "εβ < 1.0 — helical action incomplete; increase face width or helix angle" : "Acceptable helical overlap",
     },
     {
-      label: "Cutter Recommendation (Pinion)",
+      label: "Cutter Recommendation — Pinion",
       symbol: "—",
       formula: "Based on virtual teeth zv1",
       variables: `zv1 = ${fmt(zv1, 1)} virtual teeth`,
       substitution: `Select cutter for ${fmt(zv1, 1)} teeth`,
       value: zv1,
       unit: "",
-      note: `Cutter ${getCutterNum(zv1)}, Module ${mn} mm`,
+      note: `${getCutterNum(zv1)}, Module mn = ${mn} mm, Normal PA ${pressureAngle}°`,
     },
     {
       label: "Milling Table Setting",
       symbol: "—",
-      formula: "Set helix angle β on dividing head",
+      formula: "Set helix angle β on dividing head / table",
       variables: "β = Helix angle",
       substitution: `Table angle = ${helixAngle}°`,
       value: helixAngle,
       unit: "°",
-      note: `${hand === "right" ? "Right" : "Left"}-hand helix — set table to ${helixAngle}° in correct direction`,
+      note: `${hand === "right" ? "Right" : "Left"}-hand helix — set milling table to ${helixAngle}° in correct rotation direction`,
     },
   ];
 }
