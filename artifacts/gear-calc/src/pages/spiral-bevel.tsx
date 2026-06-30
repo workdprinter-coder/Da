@@ -239,8 +239,9 @@ export default function SpiralBevelPage() {
           )}
         </div>
 
-        <div>
-          <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">Calculated Results</h2>
+        <div className="space-y-4">
+          <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Calculated Results</h2>
+
           {results ? (
             <div className="grid sm:grid-cols-2 gap-2">
               {results.map((r, i) => <ResultRow key={i} result={r} index={i} />)}
@@ -248,6 +249,23 @@ export default function SpiralBevelPage() {
           ) : (
             <div className="border border-border rounded-lg p-8 bg-card text-center text-sm text-muted-foreground">
               Enter valid inputs to see calculated results
+            </div>
+          )}
+
+          {/* Engineering Disclaimer for Equivalent Machining Lead */}
+          {results && (
+            <div className="border border-amber-700/40 rounded-lg p-4 bg-amber-950/10">
+              <p className="text-xs font-semibold text-amber-400 mb-1">
+                Equivalent Machining Lead — Engineering Note
+              </p>
+              <p className="text-xs text-amber-300/80 leading-relaxed">
+                This is an equivalent machining lead calculated from the pitch diameter and spiral angle
+                for engineering setup purposes only (L = π × D / tan β, where D = Module × Teeth).
+                <strong> A spiral bevel gear does not have a single constant physical lead over the entire
+                tooth</strong> — it is generated on a pitch cone, so the tooth curvature and effective
+                lead vary across the face width. This value is used solely for differential gear train
+                setup, machine table calculations, and similar machining references.
+              </p>
             </div>
           )}
         </div>
