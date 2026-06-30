@@ -1,0 +1,133 @@
+# Update Spiral Bevel Gear Lead Calculator
+
+Update ONLY the Spiral Bevel Gear Lead Calculator in my existing Industrial Gear Engineering Calculator application. Do not modify any other modules or calculations.
+
+## Objective
+
+Simplify the lead calculator by removing unnecessary inputs and calculate the Equivalent Machining Lead using only Module, Number of Teeth, and Spiral Angle.
+
+## Remove These Input Fields
+
+Completely remove the following inputs from the Spiral Bevel Gear Lead Calculator:
+
+- Pitch Cone Angle
+- Face Width
+- Face Width Ratio
+- Mean Cone Distance
+- Mean Pitch Diameter
+- Any other input used only for lead calculation
+
+These values must not be required for the lead calculation.
+
+## Required Inputs
+
+The calculator should require only:
+
+1. Module (mm)
+2. Number of Teeth
+3. Spiral Angle (degrees)
+
+## Calculation Method
+
+Step 1:
+
+Pitch Diameter (D)
+
+D = Module × Number of Teeth
+
+Step 2:
+
+Equivalent Machining Lead (mm)
+
+Lead = (π × D) ÷ tan(Spiral Angle)
+
+where
+
+D = Pitch Diameter (mm)
+
+Spiral Angle = Degrees
+
+Step 3:
+
+Convert to Inches
+
+Lead (inch) = Lead (mm) ÷ 25.4
+
+## Display Results
+
+Display the following:
+
+• Module
+• Number of Teeth
+• Spiral Angle
+• Pitch Diameter (mm)
+• Equivalent Machining Lead (mm)
+• Equivalent Machining Lead (inch)
+
+## Show Complete Calculation
+
+Display all calculation steps exactly like an engineering handbook.
+
+Example:
+
+Input
+
+Module = 3 mm
+
+Number of Teeth = 15
+
+Spiral Angle = 35°
+
+Step 1
+
+Pitch Diameter
+
+D = Module × Teeth
+
+D = 3 × 15
+
+D = 45 mm
+
+Step 2
+
+Equivalent Lead
+
+Lead = (π × 45) ÷ tan(35°)
+
+Lead = (3.141592654 × 45) ÷ 0.700207538
+
+Lead = 201.90 mm
+
+Step 3
+
+Lead in Inches
+
+Lead = 201.90 ÷ 25.4
+
+Lead = 7.95 inch
+
+## Validation
+
+- Module must be greater than 0.
+- Number of Teeth must be greater than 0.
+- Spiral Angle must be between 1° and 89°.
+- Display meaningful validation messages for invalid input.
+
+## Engineering Note
+
+Display the following note below the results:
+
+"Equivalent Machining Lead is intended for workshop setup and engineering calculations only. A spiral bevel gear does not have a single constant physical lead like a helical gear or worm. This value is calculated from the pitch diameter and spiral angle for machining setup."
+
+## User Interface
+
+- Keep the existing application design.
+- Remove unnecessary input fields.
+- Display formulas using proper mathematical notation.
+- Show all intermediate calculation steps.
+- Round displayed values to two decimal places.
+- Keep internal calculations at double precision.
+
+## Important
+
+Update only the Spiral Bevel Gear Lead Calculator. Do not modify any other gear module or existing functionality in the application.

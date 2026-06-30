@@ -11,11 +11,67 @@ import { RotateCcw } from "lucide-react";
 
 type FormValues = z.infer<typeof spiralBevelInputSchema>;
 
-const DEFAULT_VALUES: FormValues = {
-  mn: 3,
-  z: 15,
-  spiralAngle: 35,
-};
+const DEFAULT_VALUES: FormValues = { mn: 3, z: 15, spiralAngle: 35 };
+
+function r(n: number, dp = 2) { return n.toFixed(dp); }
+
+function CalcSteps({ mn, z, beta }: { mn: number; z: number; beta: number }) {
+  const D      = mn * z;
+  const tanB   = Math.tan((beta * Math.PI) / 180);
+  const piD    = Math.PI * D;
+  const L_mm   = piD / tanB;
+  const L_in   = L_mm / 25.4;
+
+  const row = (label: string, value: string) => (
+    <div className="flex gap-3 text-xs font-mono">
+      <span className="text-muted-foreground w-4 shrink-0">▸</span>
+      <span className="text-foreground/80">{label} <span className="text-primary font-semibold">{value}</span></span>
+    </div>
+  );
+
+  return (
+    <div className="border border-border rounded-lg bg-card overflow-hidden">
+      <div className="px-4 py-2 border-b border-border bg-muted/20">
+        <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+          Calculation Steps
+        </h3>
+      </div>
+
+      <div className="divide-y divide-border/40">
+        {/* Step 1 */}
+        <div className="px-4 py-3 space-y-1.5">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-cyan-400/70">Step 1 — Pitch Diameter</p>
+          <div className="space-y-0.5">
+            {row("D = Module × Teeth", "")}
+            {row(`D = ${r(mn)} × ${z}`, "")}
+            {row("D =", `${r(D)} mm`)}
+          </div>
+        </div>
+
+        {/* Step 2 */}
+        <div className="px-4 py-3 space-y-1.5">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-cyan-400/70">Step 2 — Equivalent Lead</p>
+          <div className="space-y-0.5">
+            {row("Lead = (π × D) ÷ tan(β)", "")}
+            {row(`Lead = (${Math.PI.toFixed(9)} × ${r(D)}) ÷ tan(${beta}°)`, "")}
+            {row(`Lead = ${r(piD, 9)} ÷ ${r(tanB, 9)}`, "")}
+            {row("Lead =", `${r(L_mm)} mm`)}
+          </div>
+        </div>
+
+        {/* Step 3 */}
+        <div className="px-4 py-3 space-y-1.5">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-cyan-400/70">Step 3 — Lead in Inches</p>
+          <div className="space-y-0.5">
+            {row("Lead (inch) = Lead (mm) ÷ 25.4", "")}
+            {row(`Lead = ${r(L_mm)} ÷ 25.4`, "")}
+            {row("Lead =", `${r(L_in)} inch`)}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function SpiralBevelPage() {
   const form = useForm<FormValues>({
@@ -31,15 +87,10 @@ export default function SpiralBevelPage() {
     try { return calculateSpiralBevel(parsed.data); } catch { return null; }
   }, [values]);
 
-  // Derived preview values for inline hints
-  const mn = values.mn ?? 0;
-  const z = values.z ?? 0;
-  const beta = values.spiralAngle ?? 0;
-  const D = mn * z;
-  const L_mm = D > 0 && beta > 0 && beta < 90
-    ? (Math.PI * D) / Math.tan((beta * Math.PI) / 180)
-    : 0;
-  const L_in = L_mm / 25.4;
+  const mn    = values.mn ?? 0;
+  const z     = values.z ?? 0;
+  const beta  = values.spiralAngle ?? 0;
+  const valid = mn > 0 && z > 0 && beta > 0 && beta < 90;
 
   return (
     <div className="max-w-6xl space-y-6">
@@ -64,13 +115,12 @@ export default function SpiralBevelPage() {
               <form className="space-y-3">
                 <FormField control={form.control} name="mn" render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-xs">Module (m)</FormLabel>
+                    <FormLabel className="text-xs">Module (mm)</FormLabel>
                     <FormControl>
                       <Input
-                        type="number" step="0.01" min="0.1"
+                        type="number" step="0.01" min="0.01"
                         className="h-8 text-sm font-mono"
-                        {...field}
-                        value={field.value ?? ""}
+                        {...field} value={field.value ?? ""}
                         onChange={(e) => {
                           const v = parseFloat(e.target.value);
                           field.onChange(isNaN(v) ? undefined : v);
@@ -88,8 +138,7 @@ export default function SpiralBevelPage() {
                       <Input
                         type="number" step="1" min="1"
                         className="h-8 text-sm font-mono"
-                        {...field}
-                        value={field.value ?? ""}
+                        {...field} value={field.value ?? ""}
                         onChange={(e) => {
                           const v = parseInt(e.target.value, 10);
                           field.onChange(isNaN(v) ? undefined : v);
@@ -107,76 +156,66 @@ export default function SpiralBevelPage() {
                       <Input
                         type="number" step="0.5" min="1" max="89"
                         className="h-8 text-sm font-mono"
-                        {...field}
-                        value={field.value ?? ""}
+                        {...field} value={field.value ?? ""}
                         onChange={(e) => {
                           const v = parseFloat(e.target.value);
                           field.onChange(isNaN(v) ? undefined : v);
                         }}
                       />
                     </FormControl>
-                    <p className="text-[10px] text-muted-foreground">Standard: 35° (Gleason)</p>
+                    <p className="text-[10px] text-muted-foreground">Range: 1° – 89° · Standard: 35° (Gleason)</p>
                     <FormMessage />
                   </FormItem>
                 )} />
 
-                <div className="flex gap-2 pt-2">
-                  <Button
-                    type="button" variant="outline" size="sm"
-                    onClick={() => form.reset(DEFAULT_VALUES)}
-                    className="text-xs flex items-center gap-1"
-                  >
-                    <RotateCcw size={12} /> Reset
-                  </Button>
-                </div>
+                <Button
+                  type="button" variant="outline" size="sm"
+                  onClick={() => form.reset(DEFAULT_VALUES)}
+                  className="text-xs flex items-center gap-1 mt-2"
+                >
+                  <RotateCcw size={12} /> Reset
+                </Button>
               </form>
             </Form>
           </div>
 
           {/* Quick Summary */}
-          {results && D > 0 && L_mm > 0 && (
-            <div className="border border-border rounded-lg p-3 bg-card space-y-2">
-              <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                Quick Summary
-              </h3>
-              <div className="space-y-1">
+          {valid && results && (() => {
+            const D    = mn * z;
+            const L_mm = (Math.PI * D) / Math.tan((beta * Math.PI) / 180);
+            const L_in = L_mm / 25.4;
+            return (
+              <div className="border border-border rounded-lg p-3 bg-card space-y-1.5">
+                <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Quick Summary</h3>
                 {[
-                  { label: "Pitch Diameter", value: D.toFixed(4), unit: "mm" },
-                  { label: "Spiral Angle", value: `${beta}`, unit: "°" },
-                  { label: "Lead (mm)", value: L_mm.toFixed(4), unit: "mm" },
-                  { label: "Lead (inch)", value: L_in.toFixed(4), unit: "in" },
-                ].map(({ label, value, unit }) => (
-                  <div key={label} className="flex justify-between text-xs">
-                    <span className="text-muted-foreground">{label}</span>
-                    <span className="font-mono text-primary">{value} {unit}</span>
+                  ["Module",          `${r(mn)} mm`],
+                  ["Teeth",           `${z}`],
+                  ["Spiral Angle",    `${beta}°`],
+                  ["Pitch Diameter",  `${r(D)} mm`],
+                  ["Lead",            `${r(L_mm)} mm`],
+                  ["Lead",            `${r(L_in)} inch`],
+                ].map(([lbl, val]) => (
+                  <div key={lbl + val} className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">{lbl}</span>
+                    <span className="font-mono text-primary">{val}</span>
                   </div>
                 ))}
               </div>
+            );
+          })()}
 
-              {/* Inline formula breakdown */}
-              <div className="border-t border-border/30 pt-2 space-y-0.5 font-mono text-[10px] text-muted-foreground">
-                <div>D = {mn} × {z} = <span className="text-foreground/70">{D.toFixed(4)} mm</span></div>
-                <div>L = (π × {D.toFixed(4)}) / tan({beta}°)</div>
-                <div className="pl-3">= {(Math.PI * D).toFixed(4)} / {Math.tan((beta * Math.PI) / 180).toFixed(6)}</div>
-                <div className="pl-3 text-primary">= {L_mm.toFixed(4)} mm</div>
-                <div>L = {L_mm.toFixed(4)} / 25.4 = <span className="text-primary">{L_in.toFixed(4)} in</span></div>
-              </div>
-            </div>
-          )}
-
-          {/* Engineering note */}
+          {/* Engineering Note */}
           <div className="border border-amber-700/40 rounded-lg p-3 bg-amber-950/10">
             <p className="text-[10px] font-semibold text-amber-400 mb-1">Engineering Note</p>
             <p className="text-[10px] text-amber-300/80 leading-relaxed">
-              A spiral bevel gear is generated on a pitch cone — it does not have a single
-              constant physical lead. This value is an <strong>equivalent machining lead</strong> derived
-              from the pitch diameter and spiral angle, used for differential gear train setup,
-              machine table calculations, and similar machining references only.
+              Equivalent Machining Lead is intended for workshop setup and engineering calculations only.
+              A spiral bevel gear does not have a single constant physical lead like a helical gear or worm.
+              This value is calculated from the pitch diameter and spiral angle for machining setup.
             </p>
           </div>
         </div>
 
-        {/* ── Results Panel ────────────────────────────────────── */}
+        {/* ── Results + Steps Panel ────────────────────────────── */}
         <div className="space-y-4">
           <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
             Calculated Results
@@ -192,21 +231,9 @@ export default function SpiralBevelPage() {
             </div>
           )}
 
-          {/* Engineering disclaimer below results */}
-          {results && (
-            <div className="border border-amber-700/40 rounded-lg p-4 bg-amber-950/10">
-              <p className="text-xs font-semibold text-amber-400 mb-1">
-                Equivalent Machining Lead — Engineering Disclaimer
-              </p>
-              <p className="text-xs text-amber-300/80 leading-relaxed">
-                This is an equivalent machining lead calculated from the pitch diameter and spiral
-                angle for engineering setup purposes only (L = π × D / tan β, where D = m × z).
-                <strong> A spiral bevel gear does not have a single constant physical lead over the
-                entire tooth</strong> — it is generated on a pitch cone, so the tooth curvature and
-                effective lead vary across the face width. This value is used solely for differential
-                gear train setup, machine table calculations, and similar machining references.
-              </p>
-            </div>
+          {/* Engineering handbook step-by-step */}
+          {valid && results && (
+            <CalcSteps mn={mn} z={z} beta={beta} />
           )}
         </div>
       </div>
